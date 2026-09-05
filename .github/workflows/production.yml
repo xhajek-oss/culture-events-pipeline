@@ -24,15 +24,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p data
-          RUN_ID=$(gh run list \
+          for RUN_ID in $(gh run list \
             --workflow "Production" \
-            --status success \
-            --limit 1 \
+            --status completed \
+            --limit 10 \
             --json databaseId \
-            --jq '.[0].databaseId // empty')
-          if [ -n "$RUN_ID" ]; then
-            gh run download "$RUN_ID" -n culture-db -D data || true
-          fi
+            --jq '.[].databaseId'); do
+            if gh run download "$RUN_ID" -n culture-db -D data; then
+              echo "Restored culture-db from run $RUN_ID"
+              break
+            fi
+          done
 
       - uses: actions/setup-python@v5
         with:
@@ -44,7 +46,8 @@ jobs:
         run: python -m app.runner
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_ALERT_CHAT_ID: ${{ secrets.TELEGRAM_ALERT_CHAT_ID }}
+          TELEGRAM_EVENTS_CHAT_ID: ${{ secrets.TELEGRAM_EVENTS_CHAT_ID }}
 
       - name: Persist database
         if: always()
