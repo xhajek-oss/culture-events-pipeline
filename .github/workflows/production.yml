@@ -4,6 +4,10 @@ on:
   workflow_dispatch:
   # Add your preferred cron schedule here.
 
+permissions:
+  contents: read
+  actions: read
+
 concurrency:
   group: culture-production
   cancel-in-progress: false
@@ -13,11 +17,40 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Restore latest database artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p data
+          RUN_ID=$(gh run list \
+            --workflow "Production" \
+            --status success \
+            --limit 1 \
+            --json databaseId \
+            --jq '.[0].databaseId // empty')
+          if [ -n "$RUN_ID" ]; then
+            gh run download "$RUN_ID" -n culture-db -D data || true
+          fi
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
       - run: pip install .
-      - run: python -m app.runner
+
+      - name: Run culture pipeline
+        run: python -m app.runner
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Persist database
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: culture-db
+          path: data/culture_events.db
+          if-no-files-found: warn
+          retention-days: 30
