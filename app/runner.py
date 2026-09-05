@@ -29,10 +29,17 @@ async def run_production(config_path: str = "config/venues.yaml") -> int:
             spec = SOURCES[source_name]
             result = await spec.factory().fetch(venue, source_cfg)
             db.record_source_run(result)
+
             if result.status != "ok":
                 all_sources_ok = False
                 print(f"source_error source={source_name} venue={venue.id} error={result.error}")
                 continue
+
+            if not result.events and not spec.allow_empty:
+                all_sources_ok = False
+                print(f"source_empty source={source_name} venue={venue.id} allow_empty=false")
+                continue
+
             discovered.extend(result.events)
 
     new_count = 0
@@ -47,7 +54,7 @@ async def run_production(config_path: str = "config/venues.yaml") -> int:
             db.mark_initialized()
             print(f"baseline_initialized events={len(discovered)}")
         else:
-            print("baseline_not_initialized reason=source_failure")
+            print("baseline_not_initialized reason=source_failure_or_unexpected_empty")
 
     if notifier.enabled:
         for event in db.pending_events():
