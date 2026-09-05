@@ -7,19 +7,23 @@ The service watches configured cultural venues across independent ticket/event s
 ## Core rules
 
 - Source-local identity: GoOut, SMS Ticket and Ticketportal listings are independent events.
-- Prefer stable source IDs; fall back to stable source URLs where needed.
-- API/XHR first, HTML second, Playwright only as discovery/runtime fallback.
-- SQLite tracks first/last seen state, source runs and notification delivery.
+- Stable source IDs are used whenever available.
+- GoOut uses its JSON API and stable schedule ID.
+- SMS Ticket and Ticketportal currently use lightweight server-rendered HTTP parsing with stable event IDs extracted from event URLs.
+- Playwright is optional and reserved for endpoint discovery or a future fallback if a site becomes browser-only.
+- SQLite tracks first/last seen state, source runs and durable Telegram notification delivery.
+- The first complete successful production run establishes a baseline and sends no historical notifications.
+- SQLite is restored from the latest successful `culture-db` workflow artifact and uploaded again after each run.
 - Production schedule is intentionally not defined; configure the cron interval in `.github/workflows/production.yml`.
 
 ## Workflows
 
-- `production.yml`: fetch, compare, persist and notify.
+- `production.yml`: restore state, fetch, compare, persist and notify.
 - `pr-check.yml`: deterministic tests.
 - `debug.yml`: manual source debugging scaffold.
 
 ## Setup
 
-Configure `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` as GitHub Actions secrets. Fill stable venue/source identifiers in `config/venues.yaml` before enabling production scheduling.
+Configure `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` as GitHub Actions secrets. Venue/source identifiers live in `config/venues.yaml`.
 
-SMS Ticket and Ticketportal adapters are intentionally marked `discovery_required` until their most efficient stable transport is identified and implemented.
+For browser/network discovery install the optional dependency group with `pip install '.[discovery]'` and then install a Playwright browser only when needed.
