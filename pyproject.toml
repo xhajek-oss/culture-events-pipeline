@@ -19,7 +19,7 @@ discovery = ["playwright>=1.55,<2"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["app*", "models*", "sources*", "storage*", "delivery*", "monitoring*"]
+include = ["app*", "models*", "sources*", "storage*", "delivery*"]
 exclude = ["tests*", "data*", "config*", "docs*"]
 
 [tool.pytest.ini_options]
