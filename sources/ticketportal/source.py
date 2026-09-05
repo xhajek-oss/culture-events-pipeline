@@ -10,7 +10,7 @@ from models.culture_event import CultureEvent
 from models.source_result import SourceResult
 from models.venue import Venue
 from sources.base import CultureSource
-from sources.parsing import local_datetime, make_content_hash, normalize_text, parse_ticketportal_date, parse_time
+from sources.parsing import PRAGUE, local_datetime, make_content_hash, normalize_text, parse_ticketportal_date, parse_time
 
 
 class TicketportalSource(CultureSource):
@@ -55,6 +55,7 @@ class TicketportalSource(CultureSource):
     def _parse(self, html: str, venue: Venue, fetched_at: datetime) -> list[CultureEvent]:
         soup = BeautifulSoup(html, "html.parser")
         result: dict[str, CultureEvent] = {}
+        today = fetched_at.astimezone(PRAGUE).date()
 
         for link in soup.find_all("a", href=True):
             href = str(link.get("href") or "")
@@ -63,18 +64,16 @@ class TicketportalSource(CultureSource):
                 continue
 
             source_id = match.group(1)
-            container = self._find_event_container(link)
-            if container is None:
-                continue
-            block = normalize_text(container.get_text(" ", strip=True))
+            block = self._find_local_event_context(link)
             event_date = parse_ticketportal_date(block)
             event_time = parse_time(block)
-            if not event_date or not event_time:
+            if not event_date or not event_time or event_date < today:
                 continue
 
             title = normalize_text(link.get_text(" ", strip=True))
             if not title or title.lower() in {"koupit", "více informací", "detail", "kd hronovická", "pardubice"}:
-                title = self._find_title(container, link)
+                container = self._find_event_container(link)
+                title = self._find_title(container, link) if container is not None else ""
             if not title:
                 continue
 
@@ -108,6 +107,27 @@ class TicketportalSource(CultureSource):
             result[event.id] = event
 
         return sorted(result.values(), key=lambda e: (e.start_at or datetime.max.replace(tzinfo=timezone.utc), e.title.lower()))
+
+    @staticmethod
+    def _find_local_event_context(link, max_text_nodes: int = 24) -> str:
+        """Return the nearest preceding text that contains this ticket slot's date/time.
+
+        Ticketportal includes hidden/template content elsewhere in the page (including an
+        old 2017 demo event). Walking far up the ancestor tree can therefore attach that
+        unrelated date to a real event. The visible ticket layout places date/time just
+        before the event link, so prefer the closest preceding text nodes.
+        """
+        preceding: list[str] = []
+        for node in link.find_all_previous(string=True, limit=max_text_nodes):
+            value = normalize_text(node)
+            if value:
+                preceding.append(value)
+
+        for size in range(1, len(preceding) + 1):
+            context = normalize_text(" ".join(reversed(preceding[:size])))
+            if parse_ticketportal_date(context) and parse_time(context):
+                return context
+        return ""
 
     @staticmethod
     def _find_event_container(link):
