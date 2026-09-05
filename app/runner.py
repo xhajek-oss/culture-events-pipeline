@@ -7,6 +7,7 @@ import yaml
 from app.registry import SOURCES
 from delivery.telegram import TelegramNotifier
 from models.venue import Venue
+from sources.parsing import PRAGUE
 from storage.sqlite import Database
 
 
@@ -94,6 +95,12 @@ async def run_production(config_path: str = "config/venues.yaml") -> int:
         if initialized and is_new:
             db.enqueue_notification(event.id)
             new_count += 1
+
+    if all_sources_ok:
+        today = datetime.now(timezone.utc).astimezone(PRAGUE).date()
+        pruned = db.prune_past_events(today)
+        if pruned:
+            print(f"pruned_past_events={pruned}")
 
     if not initialized:
         if all_sources_ok:
