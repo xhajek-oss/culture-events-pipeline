@@ -4,7 +4,7 @@ venues:
     city: Pardubice
     sources:
       goout:
-        venue_id: 0  # TODO: fill real GoOut numeric venue ID
+        venue_id: 65979
       smsticket:
         url: https://www.smsticket.cz/mista/2033-kd-hronovicka-pardubice
       ticketportal:
