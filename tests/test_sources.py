@@ -39,6 +39,41 @@ def test_ticketportal_parser_uses_stable_event_id():
     assert events[0].start_at.hour == 15
 
 
+def test_ticketportal_parser_prefers_local_date_and_ignores_hidden_past_event():
+    html = """
+    <div class="hidden-template">
+      <span>10.5.2017 15:00</span>
+      <a href="/Event/135897">Dárkové poukazy</a>
+    </div>
+    <section class="tickets">
+      <div>
+        <span>středa 2 Pros. 2026 19:00</span>
+        <a href="/Event/138772">HALINA PAWLOWSKÁ - MANUÁL ZRALÉ ŽENY</a>
+      </div>
+      <div>
+        <span>pátek 11 Pros. 2026 19:00</span>
+        <a href="/Event/12006333">Kapela COP</a>
+      </div>
+      <div>
+        <span>úterý 22 Pros. 2026 19:00</span>
+        <a href="/Event/12006218">JAKUB SMOLÍK - Vánoční koncert 40 LET S VÁMI</a>
+      </div>
+    </section>
+    """
+    events = TicketportalSource()._parse(html, VENUE, NOW)
+
+    assert [event.id for event in events] == [
+        "ticketportal:138772",
+        "ticketportal:12006333",
+        "ticketportal:12006218",
+    ]
+    assert [event.start_at.date().isoformat() for event in events] == [
+        "2026-12-02",
+        "2026-12-11",
+        "2026-12-22",
+    ]
+
+
 def test_goout_parser_uses_schedule_id():
     payload = {
         "schedules": [
