@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 from models.culture_event import CultureEvent
@@ -111,6 +111,21 @@ class Database:
                 ),
             )
             return False
+
+    def prune_past_events(self, before: date) -> int:
+        cutoff = before.isoformat()
+        with self.connect() as con:
+            rows = con.execute(
+                "SELECT id FROM events WHERE start_at IS NOT NULL AND substr(start_at, 1, 10) < ?",
+                (cutoff,),
+            ).fetchall()
+            event_ids = [row["id"] for row in rows]
+            if not event_ids:
+                return 0
+            placeholders = ",".join("?" for _ in event_ids)
+            con.execute(f"DELETE FROM notifications WHERE event_id IN ({placeholders})", event_ids)
+            con.execute(f"DELETE FROM events WHERE id IN ({placeholders})", event_ids)
+            return len(event_ids)
 
     def enqueue_notification(self, event_id: str) -> None:
         with self.connect() as con:
