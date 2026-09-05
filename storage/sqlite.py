@@ -57,16 +57,23 @@ class Database:
             );
             """)
 
-    def is_initialized(self) -> bool:
+    def get_metadata(self, key: str) -> str | None:
         with self.connect() as con:
-            row = con.execute("SELECT value FROM metadata WHERE key='baseline_initialized'").fetchone()
-            return bool(row and row["value"] == "1")
+            row = con.execute("SELECT value FROM metadata WHERE key=?", (key,)).fetchone()
+            return row["value"] if row else None
 
-    def mark_initialized(self) -> None:
+    def set_metadata(self, key: str, value: str) -> None:
         with self.connect() as con:
             con.execute(
-                "INSERT INTO metadata(key,value) VALUES('baseline_initialized','1') ON CONFLICT(key) DO UPDATE SET value='1'"
+                "INSERT INTO metadata(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (key, value),
             )
+
+    def is_initialized(self) -> bool:
+        return self.get_metadata("baseline_initialized") == "1"
+
+    def mark_initialized(self) -> None:
+        self.set_metadata("baseline_initialized", "1")
 
     def upsert_event(self, event: CultureEvent) -> bool:
         with self.connect() as con:
