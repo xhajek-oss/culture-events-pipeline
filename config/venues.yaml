@@ -1,0 +1,11 @@
+venues:
+  - id: kd_hronovicka
+    name: KD Hronovická Pardubice
+    city: Pardubice
+    sources:
+      goout:
+        venue_id: 0  # TODO: fill real GoOut numeric venue ID
+      smsticket:
+        url: https://www.smsticket.cz/mista/2033-kd-hronovicka-pardubice
+      ticketportal:
+        url: https://www.ticketportal.cz/venue/KD-Hronovicka-Hronovicka-406-Pardubice
