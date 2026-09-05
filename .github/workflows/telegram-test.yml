@@ -1,0 +1,64 @@
+name: Telegram Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Telegram destination to test
+        required: true
+        default: event
+        type: choice
+        options:
+          - event
+          - alert
+
+permissions:
+  contents: read
+
+jobs:
+  send-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Telegram test message
+        shell: bash
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ALERT_CHAT_ID: ${{ secrets.TELEGRAM_ALERT_CHAT_ID }}
+          TELEGRAM_EVENTS_CHAT_ID: ${{ secrets.TELEGRAM_EVENTS_CHAT_ID }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then
+            echo "Missing TELEGRAM_BOT_TOKEN"
+            exit 1
+          fi
+
+          case "$TARGET" in
+            event)
+              CHAT_ID="${TELEGRAM_EVENTS_CHAT_ID:-}"
+              TEXT="🎭 Test Culture Events\nTelegram doručení nových kulturních akcí funguje."
+              ;;
+            alert)
+              CHAT_ID="${TELEGRAM_ALERT_CHAT_ID:-}"
+              TEXT="🚨 Test Culture Events alertu\nTelegram doručení chybových alertů funguje."
+              ;;
+            *)
+              echo "Unsupported target: $TARGET"
+              exit 1
+              ;;
+          esac
+
+          if [ -z "$CHAT_ID" ]; then
+            echo "Missing chat ID for target: $TARGET"
+            exit 1
+          fi
+
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --url "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --header "Content-Type: application/json" \
+            --data "$(jq -n --arg chat_id "$CHAT_ID" --arg text "$TEXT" '{chat_id: $chat_id, text: $text}')"
+
+          echo
+          echo "Telegram test sent to target=$TARGET"
